@@ -413,13 +413,135 @@
             return `<pre>${escapeHtml(styled)}</pre>`;
         }
 
+        function renderLatexInElement(el) {
+            if (!el || typeof renderMathInElement === 'undefined') return;
+            renderMathInElement(el, {
+                delimiters: [
+                    {left: '$$', right: '$$', display: true},
+                    {left: '$', right: '$', display: false},
+                    {left: '\\[', right: '\\]', display: true},
+                    {left: '\\(', right: '\\)', display: false}
+                ],
+                throwOnError: false,
+                ignoredTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code']
+            });
+        }
+
+        function toggleMarkdown(el) {
+            const content = el.nextElementSibling;
+            if (!content) return;
+            content.classList.toggle('show');
+            if (content.classList.contains('show') && !content.dataset.rendered) {
+                let raw = '';
+                try {
+                    raw = decodeURIComponent(content.dataset.raw || '');
+                } catch (e) {
+                    raw = content.dataset.raw || '';
+                }
+                content.innerHTML = `<div class="markdown-body">${renderMarkdownToHtml(raw)}</div>`;
+                content.dataset.rendered = '1';
+                renderLatexInElement(content);
+            } else if (!content.classList.contains('show') && content.dataset.rendered) {
+                // 释放已渲染内容，降低内存占用
+                content.innerHTML = '';
+                delete content.dataset.rendered;
+            }
+        }
+
+        function convertBracketDisplayBlocks(text) {
+            if (!text || (!text.includes('[\\displaystyle') && !text.includes('\\['))) return text;
+            const lines = String(text).split('\n');
+            const out = [];
+            let i = 0;
+            while (i < lines.length) {
+                const line = lines[i];
+                const idxDisp = line.indexOf('[\\displaystyle');
+                const idxOpen = line.indexOf('\\[');
+                const idx = idxDisp === -1 ? idxOpen : idxDisp;
+                const mode = idxDisp !== -1 ? 'disp' : (idxOpen !== -1 ? 'open' : null);
+                if (idx === -1 || !mode) {
+                    out.push(line);
+                    i += 1;
+                    continue;
+                }
+                const prefix = line.slice(0, idx);
+                let block = line.slice(idx + (mode === 'disp' ? '[\\displaystyle'.length : 2));
+                let j = i + 1;
+                let trailing = '';
+                let found = false;
+                while (j < lines.length) {
+                    const ln = lines[j];
+                    const m = ln.match(/^\s*(\\\]|\])\s*(.*)$/);
+                    if (m) {
+                        trailing = m[2] || '';
+                        found = true;
+                        break;
+                    }
+                    block += '\n' + ln;
+                    j += 1;
+                }
+                if (found) {
+                    let inner = block;
+                    if (inner.trim().startsWith('\\displaystyle')) {
+                        inner = inner.trim().slice('\\displaystyle'.length).trimStart();
+                    }
+                    out.push(`${prefix}\\[${inner}\\]${trailing}`);
+                    i = j + 1;
+                    continue;
+                }
+                out.push(line);
+                i += 1;
+            }
+            return out.join('\n');
+        }
+
         function applyDisplayStyle(content) {
             let c = content;
-            c = c.replace(/\$\$(.+?)\$\$/gs, '$$\\displaystyle $1$$');
-            c = c.replace(/\$(.+?)\$/gs, '$\\displaystyle $1$');
-            c = c.replace(/\\\[(.+?)\\\]/gs, '\\[\\displaystyle $1\\]');
-            c = c.replace(/\\\((.+?)\\\)/gs, '\\(\\displaystyle $1\\)');
+            c = convertBracketDisplayBlocks(c);
+            c = c.replace(/\(\\displaystyle([\s\S]+?)\)/g, '\\\\(\\\\displaystyle$1\\\\)');
+            c = c.replace(/\[(\\displaystyle[^\]]+?)\]/g, '\\\\[$1\\\\]');
+            c = c.replace(/\$\$(.+?)\$\$/gs, (m, inner) => {
+                if (inner.includes('\\displaystyle')) return `$$${inner}$$`;
+                return `$$\\displaystyle ${inner}$$`;
+            });
+            c = c.replace(/\$(.+?)\$/gs, (m, inner) => {
+                if (inner.includes('\\displaystyle')) return `$${inner}$`;
+                return `$\\displaystyle ${inner}$`;
+            });
+            c = c.replace(/\\\[(.+?)\\\]/gs, (m, inner) => {
+                if (inner.includes('\\displaystyle')) return `\\[${inner}\\]`;
+                return `\\[\\displaystyle ${inner}\\]`;
+            });
+            c = c.replace(/\\\((.+?)\\\)/gs, (m, inner) => {
+                if (inner.includes('\\displaystyle')) return `\\(${inner}\\)`;
+                return `\\(\\displaystyle ${inner}\\)`;
+            });
             return c;
+        }
+
+        function getOrderedQuestionIds(data, detailMap, models) {
+            const configIds = (data.config && Array.isArray(data.config.question_ids) && data.config.question_ids.length > 0)
+                ? data.config.question_ids
+                : null;
+            const idSet = new Set();
+            if (configIds) {
+                configIds.forEach(id => idSet.add(id));
+            }
+            models.forEach(m => {
+                Object.keys(detailMap[m] || {}).forEach(id => idSet.add(id));
+            });
+            const ids = Array.from(idSet);
+            const parseNum = (s) => {
+                const match = String(s).match(/\d+/);
+                return match ? parseInt(match[0], 10) : NaN;
+            };
+            ids.sort((a, b) => {
+                const na = parseNum(a);
+                const nb = parseNum(b);
+                if (!Number.isNaN(na) && !Number.isNaN(nb)) return na - nb;
+                return String(a).localeCompare(String(b));
+            });
+            return ids;
         }
 
         function prepareLatexContent() {
@@ -924,9 +1046,7 @@
                     });
                     detailMap[m] = map;
                 });
-                const questionOrder = (data.config && Array.isArray(data.config.question_ids) && data.config.question_ids.length > 0)
-                    ? data.config.question_ids
-                    : (data.results[models[0]].details || []).map(d => d.question_id).filter(Boolean);
+                const questionOrder = getOrderedQuestionIds(data, detailMap, models);
 
                 // 生成排名表
                 const ranking = models.map(m => {
@@ -981,27 +1101,16 @@
                 });
                 tableHtml += '</tr></tbody></table></div>';
 
-                // 完整回答（按模型汇总）
-                let answersHtml = '<h4 style="margin-top:20px;">完整回答（按模型汇总）</h4>';
-                models.forEach(m => {
-                    answersHtml += `<div class="card answer-group"><h5 style="color:#3498db;">${m}</h5>`;
-                    questionOrder.forEach((qid, idx) => {
-                        const detail = detailMap[m]?.[qid];
-                        const responseHtml = renderMarkdownToHtml(detail?.model_response);
-                        answersHtml += `
-                            <div class="answer-block">
-                                <div class="answer-title">${idx + 1}. ${qid}</div>
-                                <div class="answer-content markdown-body">${responseHtml}</div>
-                            </div>
-                        `;
-                    });
-                    answersHtml += '</div>';
-                });
-
                 // 详细评判信息
                 let detailsHtml = '<h4 style="margin-top:20px;">详细评判</h4>';
                 models.forEach(m => {
-                    detailsHtml += `<h5 style="margin-top:15px;color:#3498db;">${m}</h5>`;
+                    detailsHtml += `
+                        <div class="card answer-group">
+                            <div class="collapsible" onclick="this.nextElementSibling.classList.toggle('show')">
+                                ${m} · 点击展开详细评判 ▼
+                            </div>
+                            <div class="collapsible-content">
+                    `;
                     questionOrder.forEach(qid => {
                         const d = detailMap[m]?.[qid];
                         if (!d) return;
@@ -1013,8 +1122,6 @@
                         const judgeTokens = formatTokens(d.judge_usage);
                         const modelAnswerHtml = formatAnswerHtml(d.model_final_answer);
                         const correctAnswerHtml = formatAnswerHtml(d.correct_answer);
-                        const modelResponseHtml = renderMarkdownToHtml(d.model_response);
-                        const judgeResponseHtml = renderMarkdownToHtml(d.judge_response);
                         detailsHtml += `
                             <div class="card result-card ${statusClass}">
                                 <div><strong>${d.question_id}</strong>: 得分 ${d.earned_score.toFixed(2)}/${d.question_score} | 答案: ${modelAnswerHtml} (正确: ${correctAnswerHtml})</div>
@@ -1026,20 +1133,24 @@
                                 </div>
                                 <div style="margin-top:5px;color:#666;">${d.reason}</div>
                                 <div class="judge-meta">Token 使用 | 被测模型 ${modelTokens} | 裁判模型 ${judgeTokens}</div>
-                                <div class="collapsible" onclick="this.nextElementSibling.classList.toggle('show')">
+                                <div class="collapsible" onclick="toggleMarkdown(this)">
                                     点击查看该题回答 ▼
                                 </div>
-                                <div class="collapsible-content markdown-body">${modelResponseHtml}</div>
-                                <div class="collapsible" onclick="this.nextElementSibling.classList.toggle('show')">
+                                <div class="collapsible-content" data-raw="${encodeURIComponent(d.model_response || '')}"></div>
+                                <div class="collapsible" onclick="toggleMarkdown(this)">
                                     点击查看裁判评估内容 ▼
                                 </div>
-                                <div class="collapsible-content markdown-body">${judgeResponseHtml}</div>
+                                <div class="collapsible-content" data-raw="${encodeURIComponent(d.judge_response || '')}"></div>
                             </div>
                         `;
                     });
+                    detailsHtml += `
+                            </div>
+                        </div>
+                    `;
                 });
 
-                contentDiv.innerHTML = rankingHtml + tableHtml + answersHtml + detailsHtml;
+                contentDiv.innerHTML = rankingHtml + tableHtml + detailsHtml;
                 detailDiv.style.display = 'block';
                 setTimeout(renderLatex, 100);
 
