@@ -6,6 +6,7 @@ import json
 import os
 import asyncio
 import sqlite3
+import hashlib
 from datetime import datetime
 from pathlib import Path
 from typing import Optional, Union
@@ -309,6 +310,54 @@ def generate_question_id() -> str:
     while f"q{i:03d}" in existing_ids:
         i += 1
     return f"q{i:03d}"
+
+
+def get_question_signature_from_questions() -> str:
+    data = load_questions()
+    return get_question_signature_from_list(data.get("questions", []))
+
+
+def normalize_question_for_signature(q: dict) -> dict:
+    return {
+        "id": q.get("id"),
+        "question": q.get("question"),
+        "answer": q.get("answer"),
+        "answer_text": q.get("answer_text"),
+        "score": q.get("score"),
+        "tolerance": q.get("tolerance"),
+        "exact_required": q.get("exact_required", True),
+        "judge_hint": q.get("judge_hint"),
+    }
+
+
+def get_question_signature_from_list(questions: list) -> str:
+    items = [normalize_question_for_signature(q) for q in questions]
+    items = sorted(items, key=lambda x: x.get("id") or "")
+    payload = json.dumps(items, ensure_ascii=False, sort_keys=True)
+    return hashlib.sha256(payload.encode("utf-8")).hexdigest()
+
+
+def get_question_signature_from_eval(data: dict) -> str:
+    sig = data.get("config", {}).get("question_signature")
+    if sig:
+        return sig
+    results = data.get("results", {})
+    if not results:
+        return ""
+    first_model = next(iter(results))
+    details = results[first_model].get("details", [])
+    items = []
+    for d in details:
+        items.append({
+            "id": d.get("question_id"),
+            "question": d.get("question_text"),
+            "correct_answer": d.get("correct_answer"),
+            "question_score": d.get("question_score"),
+            "tolerance": d.get("tolerance"),
+        })
+    items = sorted(items, key=lambda x: x.get("id") or "")
+    payload = json.dumps(items, ensure_ascii=False, sort_keys=True)
+    return hashlib.sha256(payload.encode("utf-8")).hexdigest()
 
 migrate_results_to_current_scores()
 
@@ -842,6 +891,7 @@ async def execute_evaluation(eval_id: str, req: EvaluateRequest, selected_questi
                 detail = {
                     "question_id": q["id"],
                     "question_score": q["score"],
+                    "question_text": q.get("question"),
                     "model_response": model_response,
                     "model_final_answer": extracted_answer,
                     "correct_answer": correct_answer_display,
@@ -867,6 +917,7 @@ async def execute_evaluation(eval_id: str, req: EvaluateRequest, selected_questi
                 detail = {
                     "question_id": q["id"],
                     "question_score": q["score"],
+                    "question_text": q.get("question"),
                     "model_response": None,
                     "model_final_answer": None,
                     "correct_answer": get_answer_text(q) if is_exact_required(q) else q["answer"],
@@ -929,6 +980,8 @@ async def execute_evaluation(eval_id: str, req: EvaluateRequest, selected_questi
             "tested_models": req.tested_models,
             "judge_model": req.judge_model,
             "question_count": len(selected_questions),
+            "question_ids": [q["id"] for q in selected_questions],
+            "question_signature": get_question_signature_from_list(selected_questions),
         },
         "results": results,
     }
@@ -1160,6 +1213,60 @@ async def get_result(result_id: str):
 
     with open(result_file, "r", encoding="utf-8") as f:
         return json.load(f)
+
+
+@app.get("/api/leaderboard")
+async def get_leaderboard(signature: Optional[str] = None):
+    """总榜：按题目组合聚合历史测评"""
+    target_signature = signature or get_question_signature_from_questions()
+    leaderboard = {}
+    eval_count = 0
+
+    for file in sorted(RESULTS_DIR.glob("eval_*.json")):
+        try:
+            with open(file, "r", encoding="utf-8") as f:
+                data = json.load(f)
+        except Exception:
+            continue
+
+        sig = get_question_signature_from_eval(data)
+        if not sig or sig != target_signature:
+            continue
+
+        eval_count += 1
+        ts = data.get("timestamp")
+        for model, info in data.get("results", {}).items():
+            normalized = info.get("normalized_total_score")
+            if normalized is None:
+                normalized = float(info.get("score_rate", 0)) * 100
+            entry = leaderboard.setdefault(model, {
+                "model": model,
+                "total_score": 0.0,
+                "count": 0,
+                "avg_score": 0.0,
+                "last_score": 0.0,
+                "last_time": None,
+            })
+            entry["total_score"] += float(normalized)
+            entry["count"] += 1
+            if ts and (entry["last_time"] is None or ts > entry["last_time"]):
+                entry["last_time"] = ts
+                entry["last_score"] = float(normalized)
+
+    items = []
+    for entry in leaderboard.values():
+        count = entry["count"]
+        entry["avg_score"] = (entry["total_score"] / count) if count > 0 else 0.0
+        items.append(entry)
+
+    items.sort(key=lambda x: x.get("avg_score", 0), reverse=True)
+
+    return {
+        "signature": target_signature,
+        "question_count": len(target_signature.split(",")) if target_signature else 0,
+        "eval_count": eval_count,
+        "models": items,
+    }
 
 
 # ==================== 启动 ====================

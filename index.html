@@ -8,6 +8,7 @@
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
     <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
     <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/marked@12.0.2/marked.min.js"></script>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #f5f5f5; color: #333; }
@@ -53,6 +54,11 @@
         .answer-cell { overflow-x: auto; }
         .answer-cell .katex-display { margin: 0; }
         .answer-cell .katex { white-space: nowrap; }
+        .table-wrap { width: 100%; overflow-x: auto; border: 1px solid #e6e6e6; border-radius: 6px; }
+        .table-wrap table { margin: 0; min-width: 900px; }
+        .results-table th, .results-table td { vertical-align: middle; word-break: break-word; }
+        .results-table th.model-col { min-width: 140px; }
+        .rank-table th, .rank-table td { text-align: left; }
 
         /* Cards */
         .card { background: white; padding: 20px; border-radius: 8px; margin-bottom: 15px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
@@ -126,7 +132,7 @@
             background: #f7f9fb;
             margin-top: 6px;
             border-radius: 8px;
-            white-space: pre-wrap;
+            white-space: normal;
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
             font-size: 14px;
             line-height: 1.7;
@@ -143,6 +149,17 @@
         }
         .collapsible-content .katex-display > .katex { text-align: center; }
         .collapsible-content.show { display: block; }
+
+        .markdown-body { line-height: 1.7; color: #2c3e50; }
+        .markdown-body p { margin: 8px 0; }
+        .markdown-body ul, .markdown-body ol { margin: 8px 0; padding-left: 22px; }
+        .markdown-body blockquote { margin: 8px 0; padding: 8px 12px; background: #f1f3f5; border-left: 3px solid #d0d7de; color: #5f6b77; }
+        .markdown-body pre { background: #f1f3f5; padding: 10px 12px; border-radius: 6px; overflow: auto; }
+        .markdown-body code { background: #f1f3f5; padding: 2px 4px; border-radius: 4px; }
+
+        .answer-group { margin-top: 12px; }
+        .answer-block { margin-top: 10px; padding: 10px 12px; border: 1px solid #e6e6e6; border-radius: 8px; background: #fafbfc; }
+        .answer-title { font-weight: 600; margin-bottom: 6px; color: #2c3e50; }
     </style>
 </head>
 <body>
@@ -254,6 +271,11 @@
 
         <!-- 测评结果 -->
         <div id="results-tab" class="tab-content">
+            <div class="card" id="leaderboard-card">
+                <h3>总榜（当前题目组合）</h3>
+                <div id="leaderboard-content"></div>
+            </div>
+
             <div class="card">
                 <h3>历史测评记录</h3>
                 <button onclick="loadResults()" style="margin-bottom:15px;">刷新</button>
@@ -375,6 +397,22 @@
             return `<span class="latex-content">${toDisplayMath(text)}</span>`;
         }
 
+        function escapeHtml(text) {
+            return String(text)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;');
+        }
+
+        function renderMarkdownToHtml(text) {
+            if (!text) return '<em>(无响应)</em>';
+            const styled = applyDisplayStyle(String(text));
+            if (typeof marked !== 'undefined') {
+                return marked.parse(styled, { breaks: true });
+            }
+            return `<pre>${escapeHtml(styled)}</pre>`;
+        }
+
         function applyDisplayStyle(content) {
             let c = content;
             c = c.replace(/\$\$(.+?)\$\$/gs, '$$\\displaystyle $1$$');
@@ -403,7 +441,7 @@
 
             if (tabName === 'questions') loadQuestions();
             if (tabName === 'evaluate') { loadModels(); loadQuestionsForEval(); }
-            if (tabName === 'results') loadResults();
+            if (tabName === 'results') { loadResults(); loadLeaderboard(); }
         }
 
         // ==================== 题库管理 ====================
@@ -839,6 +877,36 @@
             }
         }
 
+        async function loadLeaderboard() {
+            const container = document.getElementById('leaderboard-content');
+            if (!container) return;
+            container.innerHTML = '<div class="loading">加载中...</div>';
+            try {
+                const res = await fetch(`${API_BASE}/api/leaderboard`);
+                if (!res.ok) throw new Error('请求失败');
+                const data = await res.json();
+                const models = data.models || [];
+                if (models.length === 0) {
+                    container.innerHTML = '<div class="message">暂无总榜数据</div>';
+                    return;
+                }
+                const metaText = `共 ${data.eval_count ?? 0} 次测评 · 题目数 ${data.question_count ?? 0}`;
+                let html = `<div style="color:#666;font-size:13px;margin-bottom:8px;">${metaText}</div>`;
+                html += '<div class="table-wrap"><table class="rank-table"><thead><tr><th>排名</th><th>模型</th><th>平均分</th><th>参评次数</th><th>最近成绩</th><th>最近时间</th></tr></thead><tbody>';
+                models.forEach((m, idx) => {
+                    const avg = (m.avg_score ?? 0).toFixed(2);
+                    const last = (m.last_score ?? 0).toFixed(2);
+                    const lastTime = m.last_time ? new Date(m.last_time).toLocaleString() : '-';
+                    html += `<tr><td>${idx + 1}</td><td>${m.model}</td><td>${avg}/100</td><td>${m.count ?? 0}</td><td>${last}/100</td><td>${lastTime}</td></tr>`;
+                });
+                html += '</tbody></table></div>';
+                container.innerHTML = html;
+            } catch (e) {
+                container.innerHTML = '<div class="message error">加载总榜失败</div>';
+                console.error('加载总榜失败:', e);
+            }
+        }
+
         async function showResultDetail(id) {
             try {
                 const res = await fetch(`${API_BASE}/api/results/${id}`);
@@ -848,30 +916,58 @@
                 const contentDiv = document.getElementById('result-detail-content');
 
                 const models = Object.keys(data.results);
+                const detailMap = {};
+                models.forEach(m => {
+                    const map = {};
+                    (data.results[m].details || []).forEach(d => {
+                        if (d && d.question_id) map[d.question_id] = d;
+                    });
+                    detailMap[m] = map;
+                });
+                const questionOrder = (data.config && Array.isArray(data.config.question_ids) && data.config.question_ids.length > 0)
+                    ? data.config.question_ids
+                    : (data.results[models[0]].details || []).map(d => d.question_id).filter(Boolean);
+
+                // 生成排名表
+                const ranking = models.map(m => {
+                    const r = data.results[m] || {};
+                    const normalized = (typeof r.normalized_total_score === 'number') ? r.normalized_total_score : (r.score_rate * 100);
+                    return {
+                        model: m,
+                        total_score: r.total_score ?? 0,
+                        score_rate: r.score_rate ?? 0,
+                        normalized_total_score: normalized ?? 0,
+                    };
+                }).sort((a, b) => (b.normalized_total_score || 0) - (a.normalized_total_score || 0));
+
+                let rankingHtml = '<h4 style="margin-top:10px;">模型排名</h4>';
+                rankingHtml += '<div class="table-wrap"><table class="rank-table"><thead><tr><th>排名</th><th>模型</th><th>总分</th><th>得分率</th></tr></thead><tbody>';
+                ranking.forEach((r, idx) => {
+                    const pct = (r.score_rate * 100).toFixed(1);
+                    rankingHtml += `<tr><td>${idx + 1}</td><td>${r.model}</td><td>${r.normalized_total_score.toFixed(2)}/100</td><td>${pct}%</td></tr>`;
+                });
+                rankingHtml += '</tbody></table></div>';
 
                 // 生成对比表格
-                let tableHtml = '<table><thead><tr><th>题目</th><th>正确答案</th>';
-                models.forEach(m => tableHtml += `<th>${m}</th>`);
+                let tableHtml = '<h4 style="margin-top:20px;">题目对比</h4><div class="table-wrap"><table class="results-table"><thead><tr><th>题目</th><th>正确答案</th>';
+                models.forEach(m => tableHtml += `<th class="model-col">${m}</th>`);
                 tableHtml += '</tr></thead><tbody>';
 
-                // 获取所有题目
-                const allQuestionIds = data.results[models[0]].details.map(d => d.question_id);
-
-                allQuestionIds.forEach(qid => {
-                    tableHtml += `<tr><td>${qid}</td>`;
-                    let correctAnswer = '';
+                questionOrder.forEach(qid => {
+                    const baseDetail = detailMap[models[0]]?.[qid];
+                    const correctAnswer = baseDetail ? formatAnswerHtml(baseDetail.correct_answer) : '-';
+                    tableHtml += `<tr><td>${qid}</td><td class="answer-cell">${correctAnswer}</td>`;
 
                     models.forEach(m => {
-                        const detail = data.results[m].details.find(d => d.question_id === qid);
+                        const detail = detailMap[m]?.[qid];
                         if (detail) {
-                            correctAnswer = formatAnswerHtml(detail.correct_answer);
                             const scoreClass = detail.is_correct ? 'high' : (detail.score_ratio > 0 ? 'medium' : 'low');
                             tableHtml += `<td><span class="score-badge ${scoreClass}">${detail.earned_score.toFixed(1)}/${detail.question_score}</span></td>`;
+                        } else {
+                            tableHtml += `<td>-</td>`;
                         }
                     });
 
-                    // 插入正确答案列
-                    tableHtml = tableHtml.replace(`<td>${qid}</td>`, `<td>${qid}</td><td>${correctAnswer}</td>`);
                     tableHtml += '</tr>';
                 });
 
@@ -883,13 +979,32 @@
                     const normalized = (typeof r.normalized_total_score === 'number') ? r.normalized_total_score : (r.score_rate * 100);
                     tableHtml += `<td>${normalized.toFixed(1)}/100 (${pct}%)</td>`;
                 });
-                tableHtml += '</tr></tbody></table>';
+                tableHtml += '</tr></tbody></table></div>';
+
+                // 完整回答（按模型汇总）
+                let answersHtml = '<h4 style="margin-top:20px;">完整回答（按模型汇总）</h4>';
+                models.forEach(m => {
+                    answersHtml += `<div class="card answer-group"><h5 style="color:#3498db;">${m}</h5>`;
+                    questionOrder.forEach((qid, idx) => {
+                        const detail = detailMap[m]?.[qid];
+                        const responseHtml = renderMarkdownToHtml(detail?.model_response);
+                        answersHtml += `
+                            <div class="answer-block">
+                                <div class="answer-title">${idx + 1}. ${qid}</div>
+                                <div class="answer-content markdown-body">${responseHtml}</div>
+                            </div>
+                        `;
+                    });
+                    answersHtml += '</div>';
+                });
 
                 // 详细评判信息
                 let detailsHtml = '<h4 style="margin-top:20px;">详细评判</h4>';
                 models.forEach(m => {
                     detailsHtml += `<h5 style="margin-top:15px;color:#3498db;">${m}</h5>`;
-                    data.results[m].details.forEach(d => {
+                    questionOrder.forEach(qid => {
+                        const d = detailMap[m]?.[qid];
+                        if (!d) return;
                         const statusClass = d.is_correct ? 'correct' : (d.score_ratio > 0 ? 'partial' : 'wrong');
                         const weight = typeof d.score_weight === 'number' ? d.score_weight : (typeof d.score_ratio === 'number' ? d.score_ratio : 0);
                         const percent = Math.max(0, Math.min(100, Math.round(weight * 100)));
@@ -898,6 +1013,8 @@
                         const judgeTokens = formatTokens(d.judge_usage);
                         const modelAnswerHtml = formatAnswerHtml(d.model_final_answer);
                         const correctAnswerHtml = formatAnswerHtml(d.correct_answer);
+                        const modelResponseHtml = renderMarkdownToHtml(d.model_response);
+                        const judgeResponseHtml = renderMarkdownToHtml(d.judge_response);
                         detailsHtml += `
                             <div class="card result-card ${statusClass}">
                                 <div><strong>${d.question_id}</strong>: 得分 ${d.earned_score.toFixed(2)}/${d.question_score} | 答案: ${modelAnswerHtml} (正确: ${correctAnswerHtml})</div>
@@ -910,19 +1027,19 @@
                                 <div style="margin-top:5px;color:#666;">${d.reason}</div>
                                 <div class="judge-meta">Token 使用 | 被测模型 ${modelTokens} | 裁判模型 ${judgeTokens}</div>
                                 <div class="collapsible" onclick="this.nextElementSibling.classList.toggle('show')">
-                                    点击查看完整回答 ▼
+                                    点击查看该题回答 ▼
                                 </div>
-                                <div class="collapsible-content">${d.model_response || '(无响应)'}</div>
+                                <div class="collapsible-content markdown-body">${modelResponseHtml}</div>
                                 <div class="collapsible" onclick="this.nextElementSibling.classList.toggle('show')">
                                     点击查看裁判评估内容 ▼
                                 </div>
-                                <div class="collapsible-content">${d.judge_response || '(无裁判返回)'}</div>
+                                <div class="collapsible-content markdown-body">${judgeResponseHtml}</div>
                             </div>
                         `;
                     });
                 });
 
-                contentDiv.innerHTML = tableHtml + detailsHtml;
+                contentDiv.innerHTML = rankingHtml + tableHtml + answersHtml + detailsHtml;
                 detailDiv.style.display = 'block';
                 setTimeout(renderLatex, 100);
 
@@ -942,7 +1059,8 @@
                         {left: '\\[', right: '\\]', display: true},
                         {left: '\\(', right: '\\)', display: false}
                     ],
-                    throwOnError: false
+                    throwOnError: false,
+                    ignoredTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code']
                 });
             }
         }

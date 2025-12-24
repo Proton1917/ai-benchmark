@@ -2,4 +2,9 @@
 __pycache__/
 server.log
 data/stats.db
+.db-wal
+.db-shm
+data/*.db-wal
+data/*.db-shm
 .env
+.claude/
