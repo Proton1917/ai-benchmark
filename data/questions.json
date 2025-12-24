@@ -1,0 +1,155 @@
+{
+  "questions": [
+    {
+      "id": "q001",
+      "question": "单位球 $S_{1}$ 的球心为原点，$S_{2}$ 的球心为 $(0,0,1)$，设两者相交部分体积为 $V$，则 $[100V]=$__________.",
+      "answer": 130,
+      "score": 5,
+      "tolerance": 0
+    },
+    {
+      "id": "q002",
+      "question": "在 $\\mathbb{R}^{100}$ 中，$\\Omega=\\{(x_{1},\\cdots,x_{100});x_{1}+\\cdots+x_{100}\\leqslant 1,x_{i}\\geqslant 0,i=1,\\cdots,2025\\}$，$S=\\int_{\\Omega}\\sqrt{x_{1}+\\cdots+x_{100}}\\mathrm{d}x_{1}\\cdots\\mathrm{d}x_{100}$，则 $\\left[\\dfrac{2}{99!S}\\right]=$__________.",
+      "answer": 201,
+      "score": 5,
+      "tolerance": 0
+    },
+    {
+      "id": "q003",
+      "question": "实对称矩阵 $A$ 的特征值在 $1,\\cdots,10$ 中取值，矩阵 $B=\\begin{pmatrix} A & A^{2}\\\\ A^{2} & A\\end{pmatrix}$，则 $B$ 的可能的最大特征值为______.",
+      "answer": 110,
+      "score": 5,
+      "tolerance": 0
+    },
+    {
+      "id": "q004",
+      "question": "$F(y)=\\int_{0}^{1}\\ln\\sqrt{x^{2}+y^{2}}$，设 $a=F'(0_{+})-F'(0_{-})-F(0)$，则 $[100|a|]=$__________.",
+      "answer": 414,
+      "score": 5,
+      "tolerance": 0
+    },
+    {
+      "id": "q005",
+      "question": "$G=\\langle a,b;a^{3},b^{3},(ab)^{2}\\rangle$，$|G|$ 的最大阶数为__________.",
+      "answer": 12,
+      "score": 5,
+      "tolerance": 0
+    },
+    {
+      "id": "q006",
+      "question": "设 $S$ 为 $x^{2/3}+y^{2/3}=1$ 包围区域的面积，则 $[160S]=$__________.",
+      "answer": 188,
+      "score": 5,
+      "tolerance": 0
+    },
+    {
+      "id": "q007",
+      "question": "$1,2,\\cdots,100$ 中满足如下条件的 $x$ 的个数为__: 存在序列 $\\{P_{1},P_{2},\\ldots\\}$，使得 $P_{k}\\equiv P_{k+1}\\pmod{2^{k}}$，$x\\equiv P_{k}^{2}\\pmod{2^{k}}$.",
+      "answer": 19,
+      "score": 5,
+      "tolerance": 0
+    },
+    {
+      "id": "q008",
+      "question": "设 $\\pi:\\mathrm{GL}_{3}(\\mathbb{C})\\to\\mathrm{PGL}_{3}(\\mathbb{C})$ 为典范同态，Abel 子群 $H\\leqslant\\mathrm{PGL}_{3}(\\mathbb{C})$，使得不存在 $G\\leqslant\\mathrm{GL}_{3}(\\mathbb{C})$，$\\pi(G)=H$，$|G|=|H|$，则 $|H|$ 的最小可能值为______.",
+      "answer": 9,
+      "score": 5,
+      "tolerance": 0
+    },
+    {
+      "id": "q009",
+      "question": "3 维列向量 $u,v,w$，长度分别为 $1,2,2$，两两夹角为 $60^{\\circ}$，$J=\\det(\\boldsymbol{I}+uu^{T}+vv^{T}+ww^{T})$，则 $[100J]=$__________.",
+      "answer": 3600,
+      "score": 5,
+      "tolerance": 0
+    },
+    {
+      "id": "q010",
+      "question": "整系数多项式 $f=x^{3}+ax^{2}+bx+c$，$a,b,c\\in\\{0,1,2,3,4\\}$，满足 $f=gh\\pmod{5}$ 不为零多项式，其中 $g,h$ 为首一整系数多项式. 这样的 $f$ 的个数为__________.",
+      "answer": 85,
+      "score": 5,
+      "tolerance": 0
+    },
+    {
+      "id": "q011",
+      "question": "满足 $\\boldsymbol{X}^{5}-\\boldsymbol{X}^{2}=\\begin{pmatrix} 1 & -1\\\\ -2 & 2\\end{pmatrix}$ 的复矩阵 $\\boldsymbol{X}$ 的个数为__________.",
+      "answer": 20,
+      "score": 5,
+      "tolerance": 0
+    },
+    {
+      "id": "q012",
+      "question": "设 $I=\\lim_{x\\to\\infty}x^{2}\\left[\\left(\\dfrac{3x^{3}-7}{3x^{3}-x}\\right)^{\\frac{1}{5}}-x\\sin\\dfrac{1}{x}\\right]$，则 $[100I]=$__________.",
+      "answer": 23,
+      "score": 5,
+      "tolerance": 0
+    },
+    {
+      "id": "q013",
+      "question": "矩阵 $\\boldsymbol{A}=\\begin{pmatrix} -4 & 1 & 1 & 1 & 1\\\\ -10 & 1 & 2 & 3 & 4\\\\ -30 & 1 & 4 & 9 & 16\\\\ -300 & 1 & 8 & 27 & 64\\\\ 0 & 4 & 3 & -9 & 2\\end{pmatrix}$，$\\boldsymbol{A}^{*}$ 的特征值的绝对值中最大值为__________.",
+      "answer": 33460,
+      "score": 5,
+      "tolerance": 1
+    },
+    {
+      "id": "q014",
+      "question": "$I=\\int_{\\pi/6}^{\\pi/2}\\sum_{n=1}^{\\infty}\\dfrac{1}{2^{n}}\\tan\\dfrac{x}{2^{n}}\\mathrm{d}x$，$[100I]=$__________.",
+      "answer": 40,
+      "score": 5,
+      "tolerance": 0
+    },
+    {
+      "id": "q015",
+      "question": "设 $S(n,k)=\\sum_{j=k}^{n-k}\\mathrm{C}_{n}^{j}\\mathrm{C}_{n}^{n-j}$，$I=\\dfrac{S(10000,4)}{S(9998,5)}$，则 $[100I]=$__________.",
+      "answer": 1599,
+      "score": 5,
+      "tolerance": 0
+    },
+    {
+      "id": "q016",
+      "question": "计算积分：$\\int_{0}^{\\infty} \\frac{\\cos(\\pi x^{2})}{\\cosh(2\\pi x)} \\, dx$.",
+      "answer": 0.2343844106164056,
+      "score": 5,
+      "tolerance": 0,
+      "answer_text": "\\frac{\\sqrt{2 - \\sqrt{2 + \\sqrt{2}}} + \\sqrt{2 + \\sqrt{2 + \\sqrt{2}}}}{4} - \\frac{1}{2\\sqrt{2}}",
+      "exact_required": true
+    },
+    {
+      "id": "q017",
+      "question": "计算积分：$\\int_{0}^{\\infty} \\left( \\frac{x \\arctan x}{e^{x}} - \\frac{x \\cos x}{(1+x)^{2}} \\right) \\, dx$.",
+      "answer": 1,
+      "score": 5,
+      "tolerance": 0,
+      "answer_text": "1",
+      "exact_required": true
+    },
+    {
+      "id": "q018",
+      "question": "计算积分：$\\displaystyle \\int_{0}^{\\frac{\\pi}{3}} \\arccos\\left(\\frac{1}{1+2\\cos t}\\right) \\, \\mathrm{d}t$.",
+      "answer": 1.2337005501361697,
+      "score": 5,
+      "tolerance": 0,
+      "answer_text": "\\pi^2/8",
+      "exact_required": true
+    },
+    {
+      "id": "q019",
+      "question": "计算积分：$\\displaystyle \\int_{0}^{\\infty} \\frac{\\sinh x \\ln x}{\\cosh 3x} \\, \\mathrm{d}x$.",
+      "answer": 0,
+      "score": 5,
+      "tolerance": 0,
+      "answer_text": "-\\frac{1}{6}\\ln 2 \\ln\\frac{8}{3}",
+      "exact_required": true
+    },
+    {
+      "id": "q020",
+      "question": "在钝角 $\\triangle ABC$ 中，过 $A$ 作 $BC$ 的垂线，交直线 $BC$ 于 $D$。现有 $3AD=10BC$，且 $AB,BC,AC$ 两两互素的正整数。求 $BC$ 的一个不为 6 的值。",
+      "answer": 52039230474,
+      "score": 5,
+      "tolerance": 0,
+      "answer_text": "52039230474",
+      "exact_required": true,
+      "judge_hint": "若解答涉及数论相关内容，score_weight 不能为 0；若提到椭圆曲线，score_weight 至少 0.5。"
+    }
+  ]
+}

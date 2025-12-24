@@ -1,0 +1,963 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI 数学 Benchmark</title>
+    <!-- KaTeX for LaTeX rendering -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #f5f5f5; color: #333; }
+
+        .container { max-width: 1200px; margin: 0 auto; padding: 20px; }
+
+        h1 { text-align: center; margin-bottom: 20px; color: #2c3e50; }
+
+        /* Tabs */
+        .tabs { display: flex; border-bottom: 2px solid #3498db; margin-bottom: 20px; }
+        .tab { padding: 12px 24px; cursor: pointer; background: #e6ebef; border: 1px solid #d0d7de; border-bottom: none; font-size: 16px; color: #2c3e50; transition: all 0.3s; }
+        .tab:hover { background: #d7dde2; }
+        .tab.active { background: #3498db; color: white; }
+
+        .tab-content { display: none; background: white; padding: 20px; border-radius: 0 0 8px 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        .tab-content.active { display: block; }
+
+        /* Forms */
+        .form-group { margin-bottom: 15px; }
+        label { display: block; margin-bottom: 5px; font-weight: 500; }
+        input[type="text"], input[type="number"], textarea, select {
+            width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px;
+        }
+        textarea { resize: vertical; min-height: 100px; }
+
+        button { padding: 10px 20px; background: #3498db; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 14px; }
+        button:hover { background: #2980b9; }
+        button:disabled { background: #bdc3c7; cursor: not-allowed; }
+        button.danger { background: #e74c3c; }
+        button.danger:hover { background: #c0392b; }
+        button.success { background: #27ae60; }
+        button.success:hover { background: #1e8449; }
+
+        /* Table */
+        table { width: 100%; border-collapse: collapse; margin-top: 15px; }
+        th, td { padding: 12px; text-align: left; border-bottom: 1px solid #ddd; }
+        th { background: #34495e; color: white; }
+        tr:hover { background: #f8f9fa; }
+        .questions-table { table-layout: fixed; }
+        .questions-table th:nth-child(2), .questions-table td:nth-child(2) { width: 55%; }
+        .questions-table th:nth-child(3), .questions-table td:nth-child(3) { width: 22%; }
+        .questions-table .latex-preview { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .answer-cell { overflow-x: auto; }
+        .answer-cell .katex-display { margin: 0; }
+        .answer-cell .katex { white-space: nowrap; }
+
+        /* Cards */
+        .card { background: white; padding: 20px; border-radius: 8px; margin-bottom: 15px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+        .card h3 { margin-bottom: 15px; color: #2c3e50; }
+
+        /* Model Tags */
+        .model-tag { display: inline-flex; align-items: center; background: #e8f4fc; padding: 5px 10px; border-radius: 20px; margin: 3px; }
+        .model-tag .remove { margin-left: 8px; cursor: pointer; color: #e74c3c; font-weight: bold; }
+
+        /* Progress */
+        .progress-container { margin: 20px 0; }
+        .progress-bar { height: 20px; background: #ecf0f1; border-radius: 10px; overflow: hidden; }
+        .progress-fill { height: 100%; background: #3498db; transition: width 0.3s; }
+        .progress-text { text-align: center; margin-top: 5px; }
+        .progress-status { text-align: center; margin-top: 6px; font-size: 13px; color: #2c3e50; }
+        .status-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; vertical-align: middle; background: #95a5a6; }
+        .status-dot.ok { background: #27ae60; }
+        .status-dot.warn { background: #f39c12; }
+        .status-dot.err { background: #e74c3c; }
+        .blink { animation: blink 1s infinite; }
+        @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.35; } }
+
+        /* Results */
+        .result-card { border-left: 4px solid #3498db; }
+        .result-card.correct { border-left-color: #27ae60; }
+        .result-card.partial { border-left-color: #f39c12; }
+        .result-card.wrong { border-left-color: #e74c3c; }
+
+        .score-badge { display: inline-block; padding: 5px 15px; border-radius: 20px; font-weight: bold; }
+        .score-badge.high { background: #d5f5e3; color: #1e8449; }
+        .score-badge.medium { background: #fef9e7; color: #b7950b; }
+        .score-badge.low { background: #fadbd8; color: #922b21; }
+        .score-bar { height: 10px; background: #ecf0f1; border-radius: 999px; overflow: hidden; }
+        .score-bar-fill { height: 100%; background: #27ae60; width: 0%; transition: width 0.3s; }
+        .score-bar-fill.partial { background: #f39c12; }
+        .score-bar-fill.zero { background: #e74c3c; }
+        .score-bar-text { margin-top: 4px; font-size: 12px; color: #666; }
+        .judge-meta { margin-top: 6px; font-size: 12px; color: #666; }
+
+        /* Checkbox list */
+        .checkbox-list { border: 1px solid #ddd; padding: 10px; border-radius: 4px; }
+        .checkbox-item { padding: 8px; border-bottom: 1px solid #eee; }
+        .checkbox-item:last-child { border-bottom: none; }
+        .checkbox-item label { display: flex; align-items: center; cursor: pointer; gap: 6px; }
+        .checkbox-item input { margin-right: 10px; }
+        .checkbox-item .latex-preview { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .checkbox-item .score-text { flex: 0 0 auto; color: #666; }
+        .q-status { width: 16px; height: 16px; display: inline-flex; align-items: center; justify-content: center; }
+        .q-spinner { width: 14px; height: 14px; border: 2px solid #cfd6dc; border-top-color: #3498db; border-radius: 50%; animation: spin 0.8s linear infinite; }
+        .q-done { color: #27ae60; font-weight: bold; font-size: 14px; line-height: 1; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* Flex utilities */
+        .flex { display: flex; gap: 10px; }
+        .flex-1 { flex: 1; }
+
+        /* Message */
+        .message { padding: 15px; border-radius: 4px; margin-bottom: 15px; }
+        .message.error { background: #fadbd8; color: #922b21; }
+        .message.success { background: #d5f5e3; color: #1e8449; }
+
+        /* Loading */
+        .loading { text-align: center; padding: 40px; color: #7f8c8d; }
+
+        /* Collapsible */
+        .collapsible { cursor: pointer; padding: 10px; background: #f8f9fa; border-radius: 4px; margin-top: 10px; }
+        .collapsible:hover { background: #ecf0f1; }
+        .collapsible-content {
+            display: none;
+            padding: 16px 18px;
+            background: #f7f9fb;
+            margin-top: 6px;
+            border-radius: 8px;
+            white-space: pre-wrap;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            font-size: 14px;
+            line-height: 1.7;
+            color: #2c3e50;
+            max-height: 500px;
+            overflow-y: auto;
+        }
+        .collapsible-content .katex-display {
+            margin: 12px 0;
+            padding: 12px 14px;
+            background: #f1f3f5;
+            border-radius: 8px;
+            overflow-x: auto;
+        }
+        .collapsible-content .katex-display > .katex { text-align: center; }
+        .collapsible-content.show { display: block; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>AI 数学 Benchmark</h1>
+
+        <div class="tabs">
+            <button class="tab" data-tab="questions" onclick="showTab('questions', this)">题库管理</button>
+            <button class="tab active" data-tab="evaluate" onclick="showTab('evaluate', this)">开始测评</button>
+            <button class="tab" data-tab="results" onclick="showTab('results', this)">测评结果</button>
+        </div>
+
+        <!-- 题库管理 -->
+        <div id="questions-tab" class="tab-content">
+            <div class="card">
+                <h3>添加题目</h3>
+                <div class="form-group">
+                    <label>题目内容</label>
+                    <textarea id="new-question" placeholder="输入题目内容..."></textarea>
+                </div>
+                <div class="flex">
+                    <div class="flex-1">
+                        <label>正确答案（数字）</label>
+                        <input type="number" id="new-answer" step="any" placeholder="42">
+                    </div>
+                    <div class="flex-1">
+                        <label>分值</label>
+                        <input type="number" id="new-score" value="10" step="any">
+                    </div>
+                </div>
+                <br>
+                <button onclick="addQuestion()">添加题目</button>
+                <button onclick="showImportDialog()" style="margin-left:10px;">批量导入 JSON</button>
+            </div>
+
+            <div class="card">
+                <h3>题目列表</h3>
+                <table class="questions-table">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>题目</th>
+                            <th>答案</th>
+                            <th>分值</th>
+                            <th>正确率</th>
+                            <th>操作</th>
+                        </tr>
+                    </thead>
+                    <tbody id="questions-list"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- 开始测评 -->
+        <div id="evaluate-tab" class="tab-content active">
+            <div class="card">
+                <h3>被测模型</h3>
+                <div class="form-group">
+                    <label>从列表选择或手动输入模型名称</label>
+            <div class="flex">
+                <select id="model-select" class="flex-1" onchange="document.getElementById('model-input').value=this.value; saveUiState();">
+                    <option value="">-- 从列表选择 --</option>
+                </select>
+            </div>
+                    <div class="flex" style="margin-top:8px;">
+                        <input type="text" id="model-input" class="flex-1" placeholder="或直接输入模型名称，如 openai/gpt-4o">
+                        <button onclick="addTestedModel()">添加</button>
+                    </div>
+                </div>
+                <div id="tested-models-list"></div>
+            </div>
+
+            <div class="card">
+                <h3>裁判模型</h3>
+                <div class="form-group">
+                    <label>从列表选择或手动输入</label>
+                    <div class="flex">
+                <select id="judge-select" class="flex-1" onchange="document.getElementById('judge-model').value=this.value; saveUiState();">
+                    <option value="">-- 从列表选择 --</option>
+                </select>
+            </div>
+            <div style="margin-top:8px;">
+                <input type="text" id="judge-model" value="openai/gpt-5.2" placeholder="裁判模型名称" oninput="saveUiState()">
+            </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <h3>选择题目</h3>
+                <div class="form-group">
+                    <label><input type="checkbox" id="select-all" onchange="toggleSelectAll()"> 全选</label>
+                </div>
+                <div class="checkbox-list" id="question-checkboxes"></div>
+            </div>
+
+            <div class="card">
+                <button class="success" onclick="startEvaluation()" id="start-eval-btn" style="width:100%;padding:15px;font-size:16px;">开始测评</button>
+                <div class="progress-container" id="progress-container" style="display:none;">
+                    <div class="progress-bar">
+                        <div class="progress-fill" id="progress-fill" style="width:0%"></div>
+                    </div>
+                    <div class="progress-text" id="progress-text">准备中...</div>
+                    <div class="progress-text" id="progress-tokens"></div>
+                    <div class="progress-status" id="progress-status"></div>
+                    <div class="progress-status" id="openrouter-status"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 测评结果 -->
+        <div id="results-tab" class="tab-content">
+            <div class="card">
+                <h3>历史测评记录</h3>
+                <button onclick="loadResults()" style="margin-bottom:15px;">刷新</button>
+                <div id="results-list"></div>
+            </div>
+
+            <div class="card" id="result-detail" style="display:none;">
+                <h3>测评详情</h3>
+                <div id="result-detail-content"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Import Dialog -->
+    <div id="import-dialog" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:1000;">
+        <div style="background:white;max-width:600px;margin:100px auto;padding:20px;border-radius:8px;">
+            <h3>批量导入题目</h3>
+            <p style="margin:15px 0;color:#666;">请输入 JSON 格式的题目数组：</p>
+            <textarea id="import-json" style="width:100%;height:200px;font-family:monospace;" placeholder='[
+  {"question": "题目1", "answer": 42, "score": 10},
+  {"question": "题目2", "answer": 100, "score": 15}
+]'></textarea>
+            <div style="margin-top:15px;text-align:right;">
+                <button onclick="hideImportDialog()">取消</button>
+                <button class="success" onclick="importQuestions()" style="margin-left:10px;">导入</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = '';
+        let testedModels = [];
+        let allModels = [];
+        let progressTimer = null;
+        let currentEvalId = null;
+        let uiState = null;
+
+        function formatTokens(usage) {
+            if (!usage) return '—';
+            const prompt = usage.prompt_tokens ?? usage.promptTokens ?? null;
+            const completion = usage.completion_tokens ?? usage.completionTokens ?? null;
+            const total = usage.total_tokens ?? usage.totalTokens ?? null;
+            if (prompt === null && completion === null && total === null) return '—';
+            return `输入:${prompt ?? '-'} 输出:${completion ?? '-'} 总计:${total ?? '-'}`;
+        }
+
+        function setConnectionStatus(ok, message) {
+            const el = document.getElementById('progress-status');
+            if (!el) return;
+            const dotClass = ok ? 'ok' : 'err';
+            el.innerHTML = `<span class="status-dot ${dotClass}"></span>${message}`;
+        }
+
+        function setOutputStatus(stage, modelChars, modelEst, judgeChars, judgeEst) {
+            const el = document.getElementById('progress-status');
+            if (!el) return;
+            let text = '';
+            let dotClass = 'warn';
+            if (stage === 'both') {
+                text = `被测+裁判输出中… 被测字符 ${modelChars ?? 0}，裁判字符 ${judgeChars ?? 0}`;
+                dotClass = 'warn';
+            } else if (stage === 'model') {
+                text = `被测模型输出中… 本轮字符 ${modelChars ?? 0}，估算 tokens ${modelEst ?? 0}`;
+                dotClass = 'warn';
+            } else if (stage === 'judge') {
+                text = `裁判模型输出中… 本轮字符 ${judgeChars ?? 0}，估算 tokens ${judgeEst ?? 0}`;
+                dotClass = 'warn';
+            } else {
+                text = '等待输出…';
+                dotClass = 'ok';
+            }
+            el.innerHTML = `<span class="status-dot ${dotClass} blink"></span>${text}`;
+        }
+
+        function setOpenrouterStatus(ok, message) {
+            const el = document.getElementById('openrouter-status');
+            if (!el) return;
+            const dotClass = ok ? 'ok' : 'err';
+            el.innerHTML = `<span class="status-dot ${dotClass}"></span>${message}`;
+        }
+
+        function startOpenrouterHeartbeat() {
+            const poll = async () => {
+                try {
+                    const res = await fetch(`${API_BASE}/api/openrouter/health`);
+                    if (!res.ok) {
+                        setOpenrouterStatus(false, 'OpenRouter 连接失败');
+                        return;
+                    }
+                    const data = await res.json();
+                    const latency = data.latency_ms !== undefined ? ` · ${data.latency_ms}ms` : '';
+                    setOpenrouterStatus(!!data.ok, `OpenRouter ${data.ok ? '连接正常' : '异常'}${latency}`);
+                } catch (e) {
+                    setOpenrouterStatus(false, 'OpenRouter 连接失败');
+                }
+            };
+            poll();
+            setInterval(poll, 5000);
+        }
+
+        function toDisplayMath(text) {
+            const trimmed = text.trim();
+            if (trimmed.startsWith('$$') && trimmed.endsWith('$$')) return trimmed;
+            if (trimmed.startsWith('$') && trimmed.endsWith('$')) {
+                return `$$${trimmed.slice(1, -1)}$$`;
+            }
+            if (trimmed.startsWith('\\(') && trimmed.endsWith('\\)')) {
+                return `$$${trimmed.slice(2, -2)}$$`;
+            }
+            if (trimmed.startsWith('\\[') && trimmed.endsWith('\\]')) {
+                return `$$${trimmed.slice(2, -2)}$$`;
+            }
+            return `$$${trimmed}$$`;
+        }
+
+        function formatAnswerHtml(value) {
+            if (value === null || value === undefined) return '';
+            const text = String(value);
+            return `<span class="latex-content">${toDisplayMath(text)}</span>`;
+        }
+
+        function applyDisplayStyle(content) {
+            let c = content;
+            c = c.replace(/\$\$(.+?)\$\$/gs, '$$\\displaystyle $1$$');
+            c = c.replace(/\$(.+?)\$/gs, '$\\displaystyle $1$');
+            c = c.replace(/\\\[(.+?)\\\]/gs, '\\[\\displaystyle $1\\]');
+            c = c.replace(/\\\((.+?)\\\)/gs, '\\(\\displaystyle $1\\)');
+            return c;
+        }
+
+        function prepareLatexContent() {
+            document.querySelectorAll('.latex-content').forEach(el => {
+                if (!el.dataset.rawLatex) {
+                    el.dataset.rawLatex = el.innerHTML;
+                }
+                el.innerHTML = applyDisplayStyle(el.dataset.rawLatex);
+            });
+        }
+
+        // ==================== Tab 切换 ====================
+        function showTab(tabName, tabButton) {
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+            document.querySelector(`#${tabName}-tab`).classList.add('active');
+            const btn = tabButton || document.querySelector(`.tab[data-tab="${tabName}"]`);
+            if (btn) btn.classList.add('active');
+
+            if (tabName === 'questions') loadQuestions();
+            if (tabName === 'evaluate') { loadModels(); loadQuestionsForEval(); }
+            if (tabName === 'results') loadResults();
+        }
+
+        // ==================== 题库管理 ====================
+        async function loadQuestions() {
+            try {
+                const res = await fetch(`${API_BASE}/api/questions`);
+                const data = await res.json();
+                const tbody = document.getElementById('questions-list');
+                tbody.innerHTML = data.questions.map(q => `
+                    <tr>
+                        <td>${q.id}</td>
+                        <td class="latex-content"><span class="latex-preview">${q.question}</span></td>
+                        <td><div class="answer-cell">${formatAnswerHtml(q.answer_text ?? q.answer)}</div></td>
+                        <td>${q.score}</td>
+                        <td>${(q.correct_rate !== null && q.correct_rate !== undefined) ? (q.correct_rate * 100).toFixed(1) + '%' : '-'}</td>
+                        <td>
+                            <button onclick="editQuestion('${q.id}')">编辑</button>
+                            <button class="danger" onclick="deleteQuestion('${q.id}')">删除</button>
+                        </td>
+                    </tr>
+                `).join('');
+                setTimeout(renderLatex, 100);
+            } catch (e) {
+                console.error('加载题目失败:', e);
+            }
+        }
+
+        async function addQuestion() {
+            const question = document.getElementById('new-question').value.trim();
+            const answer = parseFloat(document.getElementById('new-answer').value);
+            const score = parseFloat(document.getElementById('new-score').value);
+
+            if (!question || isNaN(answer) || isNaN(score)) {
+                alert('请填写完整的题目信息');
+                return;
+            }
+
+            try {
+                await fetch(`${API_BASE}/api/questions`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({question, answer, score})
+                });
+                document.getElementById('new-question').value = '';
+                document.getElementById('new-answer').value = '';
+                loadQuestions();
+            } catch (e) {
+                alert('添加失败: ' + e.message);
+            }
+        }
+
+        async function deleteQuestion(id) {
+            if (!confirm('确定删除这道题目？')) return;
+            try {
+                await fetch(`${API_BASE}/api/questions/${id}`, {method: 'DELETE'});
+                loadQuestions();
+            } catch (e) {
+                alert('删除失败: ' + e.message);
+            }
+        }
+
+        async function editQuestion(id) {
+            const res = await fetch(`${API_BASE}/api/questions`);
+            const data = await res.json();
+            const q = data.questions.find(x => x.id === id);
+            if (!q) return;
+
+            const newQuestion = prompt('题目内容:', q.question);
+            if (newQuestion === null) return;
+            const newAnswer = prompt('正确答案:', q.answer);
+            if (newAnswer === null) return;
+            const newScore = prompt('分值:', q.score);
+            if (newScore === null) return;
+
+            await fetch(`${API_BASE}/api/questions/${id}`, {
+                method: 'PUT',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    question: newQuestion,
+                    answer: parseFloat(newAnswer),
+                    score: parseFloat(newScore)
+                })
+            });
+            loadQuestions();
+        }
+
+        function showImportDialog() {
+            document.getElementById('import-dialog').style.display = 'block';
+        }
+
+        function hideImportDialog() {
+            document.getElementById('import-dialog').style.display = 'none';
+        }
+
+        async function importQuestions() {
+            try {
+                const json = document.getElementById('import-json').value;
+                const questions = JSON.parse(json);
+
+                for (const q of questions) {
+                    await fetch(`${API_BASE}/api/questions`, {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify(q)
+                    });
+                }
+
+                hideImportDialog();
+                loadQuestions();
+                alert(`成功导入 ${questions.length} 道题目`);
+            } catch (e) {
+                alert('导入失败: ' + e.message);
+            }
+        }
+
+        // ==================== 测评配置 ====================
+        async function loadModels() {
+            try {
+                const res = await fetch(`${API_BASE}/api/models`);
+                if (!res.ok) throw new Error('加载失败');
+
+                const data = await res.json();
+                allModels = data.models;
+
+                // 更新被测模型选择器
+                const modelSelect = document.getElementById('model-select');
+                modelSelect.innerHTML = '<option value="">-- 从列表选择 --</option>' +
+                    allModels.map(m => `<option value="${m}">${m}</option>`).join('');
+
+                // 更新裁判模型选择器
+                const judgeSelect = document.getElementById('judge-select');
+                judgeSelect.innerHTML = '<option value="">-- 从列表选择 --</option>' +
+                    allModels.map(m => `<option value="${m}">${m}</option>`).join('');
+
+            } catch (e) {
+                console.error('加载模型列表失败:', e);
+            }
+        }
+
+        function addTestedModel() {
+            const input = document.getElementById('model-input');
+            const model = input.value.trim();
+            if (!model || testedModels.includes(model)) return;
+
+            testedModels.push(model);
+            renderTestedModels();
+            saveUiState();
+            input.value = '';
+            document.getElementById('model-select').value = '';
+        }
+
+        function removeTestedModel(model) {
+            testedModels = testedModels.filter(m => m !== model);
+            renderTestedModels();
+            saveUiState();
+        }
+
+        function renderTestedModels() {
+            const container = document.getElementById('tested-models-list');
+            container.innerHTML = testedModels.map(m => `
+                <span class="model-tag">
+                    ${m}
+                    <span class="remove" onclick="removeTestedModel('${m}')">&times;</span>
+                </span>
+            `).join('');
+        }
+
+        async function saveUiState() {
+            const judgeModel = document.getElementById('judge-model').value.trim();
+            const selectedQuestions = Array.from(document.querySelectorAll('.question-checkbox:checked')).map(cb => cb.value);
+            try {
+                await fetch(`${API_BASE}/api/ui/state`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        tested_models: testedModels,
+                        judge_model: judgeModel,
+                        question_ids: selectedQuestions
+                    })
+                });
+            } catch (e) {
+                console.error('保存状态失败:', e);
+            }
+        }
+
+        async function fetchUiState() {
+            try {
+                const res = await fetch(`${API_BASE}/api/ui/state`);
+                if (!res.ok) return null;
+                const data = await res.json();
+                uiState = data || null;
+                return uiState;
+            } catch (e) {
+                console.error('获取状态失败:', e);
+                return null;
+            }
+        }
+
+        function applyUiStateIfAny() {
+            if (!uiState) return;
+            if (Array.isArray(uiState.tested_models)) {
+                testedModels = uiState.tested_models.filter(v => typeof v === 'string' && v.trim());
+                renderTestedModels();
+            }
+            if (typeof uiState.judge_model === 'string' && uiState.judge_model.trim()) {
+                document.getElementById('judge-model').value = uiState.judge_model.trim();
+            }
+            if (Array.isArray(uiState.question_ids) && uiState.question_ids.length > 0) {
+                const selected = new Set(uiState.question_ids);
+                document.querySelectorAll('.question-checkbox').forEach(cb => {
+                    cb.checked = selected.has(cb.value);
+                });
+                document.getElementById('select-all').checked = Array.from(document.querySelectorAll('.question-checkbox')).every(cb => cb.checked);
+            }
+        }
+
+        async function loadQuestionsForEval() {
+            try {
+                const res = await fetch(`${API_BASE}/api/questions`);
+                const data = await res.json();
+                const container = document.getElementById('question-checkboxes');
+                container.innerHTML = data.questions.map(q => `
+                    <div class="checkbox-item">
+                        <label>
+                            <input type="checkbox" value="${q.id}" class="question-checkbox" onchange="saveUiState()">
+                            <strong>${q.id}</strong>
+                            <span class="q-status" id="q-status-${q.id}"></span>
+                            <span>:</span>
+                            <span class="latex-content latex-preview">${q.question}</span>
+                            <span class="score-text">(${q.score}分，正确率 ${q.correct_rate !== null && q.correct_rate !== undefined ? (q.correct_rate * 100).toFixed(1) + '%' : '-'})</span>
+                        </label>
+                    </div>
+                `).join('');
+                // 默认全选，如有后端状态则覆盖
+                document.getElementById('select-all').checked = true;
+                document.querySelectorAll('.question-checkbox').forEach(cb => cb.checked = true);
+                applyUiStateIfAny();
+                setTimeout(renderLatex, 100);
+            } catch (e) {
+                console.error('加载题目失败:', e);
+            }
+        }
+
+        function toggleSelectAll() {
+            const checked = document.getElementById('select-all').checked;
+            document.querySelectorAll('.question-checkbox').forEach(cb => cb.checked = checked);
+            saveUiState();
+        }
+
+        async function startEvaluation() {
+            const judgeModel = document.getElementById('judge-model').value;
+            const selectedQuestions = Array.from(document.querySelectorAll('.question-checkbox:checked')).map(cb => cb.value);
+
+            if (testedModels.length === 0) { alert('请添加至少一个被测模型'); return; }
+            if (selectedQuestions.length === 0) { alert('请选择至少一道题目'); return; }
+
+            const btn = document.getElementById('start-eval-btn');
+            const progressContainer = document.getElementById('progress-container');
+
+            btn.disabled = true;
+            btn.textContent = '测评中...';
+            progressContainer.style.display = 'block';
+            document.getElementById('progress-text').textContent = `准备中...`;
+            document.getElementById('progress-fill').style.width = '0%';
+            document.getElementById('progress-tokens').textContent = '';
+            document.getElementById('progress-status').textContent = '';
+
+            try {
+                const res = await fetch(`${API_BASE}/api/evaluate/start`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        tested_models: testedModels,
+                        judge_model: judgeModel,
+                        question_ids: selectedQuestions
+                    })
+                });
+
+                if (!res.ok) {
+                    const err = await res.json();
+                    throw new Error(err.detail || '测评失败');
+                }
+
+                const result = await res.json();
+                currentEvalId = result.id;
+                startProgressPolling(currentEvalId, testedModels.length * selectedQuestions.length);
+
+            } catch (e) {
+                alert('测评失败: ' + e.message);
+            }
+        }
+
+        function startProgressPolling(evalId, totalTasks = null) {
+            const progressFill = document.getElementById('progress-fill');
+            const progressText = document.getElementById('progress-text');
+            const progressTokens = document.getElementById('progress-tokens');
+            const btn = document.getElementById('start-eval-btn');
+            if (progressTimer) clearInterval(progressTimer);
+
+            progressTimer = setInterval(async () => {
+                try {
+                    const res = await fetch(`${API_BASE}/api/evaluate/progress/${evalId}`);
+                    if (!res.ok) {
+                        return;
+                    }
+                    const p = await res.json();
+                    setConnectionStatus(true, `连接正常 · ${new Date(p.updated_at || Date.now()).toLocaleTimeString()}`);
+
+                    const total = p.total_tasks ?? totalTasks ?? 0;
+                    const completed = p.completed_tasks ?? 0;
+                    const percent = total > 0 ? Math.round((completed / total) * 100) : 0;
+                    progressFill.style.width = `${percent}%`;
+
+                    const modelText = p.current_model ? `模型 ${p.current_model}` : '';
+                    const qText = p.current_question_id ? `题目 ${p.current_question_id}` : '';
+                    const active = p.active_tasks ?? 0;
+                    const statusText = `已完成 ${completed}/${total}` + (active ? ` · 并发 ${active}` : '') + (modelText || qText ? ` · ${modelText} ${qText}` : '');
+                    progressText.textContent = statusText.trim();
+
+                    const modelTokenText = formatTokens(p.model_last_usage);
+                    const judgeTokenText = formatTokens(p.judge_last_usage);
+                    const modelTotal = `累计 ${p.model_prompt_tokens ?? 0}/${p.model_completion_tokens ?? 0}/${p.model_total_tokens ?? 0}`;
+                    const judgeTotal = `累计 ${p.judge_prompt_tokens ?? 0}/${p.judge_completion_tokens ?? 0}/${p.judge_total_tokens ?? 0}`;
+                    const modelDisplay = modelTokenText === '—' ? '输入:0 输出:0 总计:0' : modelTokenText;
+                    const judgeDisplay = judgeTokenText === '—' ? '输入:0 输出:0 总计:0' : judgeTokenText;
+                    const streamStage = p.stream_stage === 'both'
+                        ? '被测+裁判流式'
+                        : (p.stream_stage === 'judge' ? '裁判流式' : (p.stream_stage === 'model' ? '被测流式' : '空闲'));
+                    const streamModel = `流式估算 ${p.model_stream_est_tokens ?? 0}`;
+                    const streamJudge = `流式估算 ${p.judge_stream_est_tokens ?? 0}`;
+                    progressTokens.textContent = `Token | ${streamStage} | 被测 ${modelDisplay}（${modelTotal}，${streamModel}） | 裁判 ${judgeDisplay}（${judgeTotal}，${streamJudge}）`;
+                    setOutputStatus(p.stream_stage, p.model_stream_chars, p.model_stream_est_tokens, p.judge_stream_chars, p.judge_stream_est_tokens);
+                    updateQuestionStatus(p.question_status || {});
+
+                    if (p.status === 'completed') {
+                        clearInterval(progressTimer);
+                        progressFill.style.width = '100%';
+                        progressText.textContent = '测评完成！';
+                        progressTokens.textContent = '';
+                        setConnectionStatus(true, '测评完成');
+                        btn.disabled = false;
+                        btn.textContent = '开始测评';
+                        alert('测评完成！请查看测评结果。');
+                        showTab('results');
+                        showResultDetail(evalId);
+                    }
+                    if (p.status === 'error') {
+                        clearInterval(progressTimer);
+                        btn.disabled = false;
+                        btn.textContent = '开始测评';
+                        setConnectionStatus(false, '测评失败');
+                        alert('测评失败: ' + (p.error || '未知错误'));
+                    }
+                } catch (e) {
+                    console.error('获取测评进度失败:', e);
+                    setConnectionStatus(false, '连接失败，正在重试…');
+                }
+            }, 100);
+        }
+
+        function updateQuestionStatus(statusMap) {
+            Object.keys(statusMap || {}).forEach(qid => {
+                const el = document.getElementById(`q-status-${qid}`);
+                if (!el) return;
+                const st = statusMap[qid];
+                if (!st) { el.innerHTML = ''; return; }
+                if (st.completed_count >= st.total) {
+                    el.innerHTML = '<span class="q-done">✔</span>';
+                } else if (st.running_count > 0) {
+                    el.innerHTML = '<span class="q-spinner"></span>';
+                } else {
+                    el.innerHTML = '';
+                }
+            });
+        }
+
+        async function resumeEvaluationIfAny() {
+            let activeEvalId = null;
+            try {
+                const res = await fetch(`${API_BASE}/api/evaluate/running`);
+                if (res.ok) {
+                    const data = await res.json();
+                    if (data.running && data.running.length > 0) {
+                        activeEvalId = data.running[0].id;
+                    }
+                }
+            } catch (e) {
+                console.error('获取运行中测评失败:', e);
+            }
+            if (!activeEvalId) return;
+            const progressContainer = document.getElementById('progress-container');
+            const btn = document.getElementById('start-eval-btn');
+            progressContainer.style.display = 'block';
+            btn.disabled = true;
+            btn.textContent = '测评中...';
+            document.getElementById('progress-text').textContent = '恢复中...';
+            document.getElementById('progress-fill').style.width = '0%';
+            showTab('evaluate');
+            startProgressPolling(activeEvalId);
+        }
+
+        // ==================== 测评结果 ====================
+        async function loadResults() {
+            try {
+                const res = await fetch(`${API_BASE}/api/results`);
+                const data = await res.json();
+                const container = document.getElementById('results-list');
+
+                if (data.results.length === 0) {
+                    container.innerHTML = '<p style="color:#666;">暂无测评记录</p>';
+                    return;
+                }
+
+                container.innerHTML = data.results.map(r => {
+                    const models = Object.keys(r.summary);
+                    const summaryText = models.map(m => {
+                        const item = r.summary[m];
+                        const normalized = (typeof item.normalized_total_score === 'number') ? item.normalized_total_score : (item.score_rate * 100);
+                        return `${m}: ${normalized.toFixed(1)}/100`;
+                    }).join(' | ');
+                    return `
+                        <div class="card" style="cursor:pointer;" onclick="showResultDetail('${r.id}')">
+                            <strong>${r.id}</strong>
+                            <div style="color:#666;font-size:13px;margin-top:5px;">
+                                ${new Date(r.timestamp).toLocaleString()} | ${r.config.question_count} 道题目
+                            </div>
+                            <div style="margin-top:8px;">${summaryText}</div>
+                        </div>
+                    `;
+                }).join('');
+            } catch (e) {
+                console.error('加载结果失败:', e);
+            }
+        }
+
+        async function showResultDetail(id) {
+            try {
+                const res = await fetch(`${API_BASE}/api/results/${id}`);
+                const data = await res.json();
+
+                const detailDiv = document.getElementById('result-detail');
+                const contentDiv = document.getElementById('result-detail-content');
+
+                const models = Object.keys(data.results);
+
+                // 生成对比表格
+                let tableHtml = '<table><thead><tr><th>题目</th><th>正确答案</th>';
+                models.forEach(m => tableHtml += `<th>${m}</th>`);
+                tableHtml += '</tr></thead><tbody>';
+
+                // 获取所有题目
+                const allQuestionIds = data.results[models[0]].details.map(d => d.question_id);
+
+                allQuestionIds.forEach(qid => {
+                    tableHtml += `<tr><td>${qid}</td>`;
+                    let correctAnswer = '';
+
+                    models.forEach(m => {
+                        const detail = data.results[m].details.find(d => d.question_id === qid);
+                        if (detail) {
+                            correctAnswer = formatAnswerHtml(detail.correct_answer);
+                            const scoreClass = detail.is_correct ? 'high' : (detail.score_ratio > 0 ? 'medium' : 'low');
+                            tableHtml += `<td><span class="score-badge ${scoreClass}">${detail.earned_score.toFixed(1)}/${detail.question_score}</span></td>`;
+                        }
+                    });
+
+                    // 插入正确答案列
+                    tableHtml = tableHtml.replace(`<td>${qid}</td>`, `<td>${qid}</td><td>${correctAnswer}</td>`);
+                    tableHtml += '</tr>';
+                });
+
+                // 总分行
+                tableHtml += '<tr style="font-weight:bold;background:#f8f9fa;"><td>总分</td><td>-</td>';
+                models.forEach(m => {
+                    const r = data.results[m];
+                    const pct = (r.score_rate * 100).toFixed(1);
+                    const normalized = (typeof r.normalized_total_score === 'number') ? r.normalized_total_score : (r.score_rate * 100);
+                    tableHtml += `<td>${normalized.toFixed(1)}/100 (${pct}%)</td>`;
+                });
+                tableHtml += '</tr></tbody></table>';
+
+                // 详细评判信息
+                let detailsHtml = '<h4 style="margin-top:20px;">详细评判</h4>';
+                models.forEach(m => {
+                    detailsHtml += `<h5 style="margin-top:15px;color:#3498db;">${m}</h5>`;
+                    data.results[m].details.forEach(d => {
+                        const statusClass = d.is_correct ? 'correct' : (d.score_ratio > 0 ? 'partial' : 'wrong');
+                        const weight = typeof d.score_weight === 'number' ? d.score_weight : (typeof d.score_ratio === 'number' ? d.score_ratio : 0);
+                        const percent = Math.max(0, Math.min(100, Math.round(weight * 100)));
+                        const fillClass = weight >= 1 ? '' : (weight <= 0 ? 'zero' : 'partial');
+                        const modelTokens = formatTokens(d.model_usage);
+                        const judgeTokens = formatTokens(d.judge_usage);
+                        const modelAnswerHtml = formatAnswerHtml(d.model_final_answer);
+                        const correctAnswerHtml = formatAnswerHtml(d.correct_answer);
+                        detailsHtml += `
+                            <div class="card result-card ${statusClass}">
+                                <div><strong>${d.question_id}</strong>: 得分 ${d.earned_score.toFixed(2)}/${d.question_score} | 答案: ${modelAnswerHtml} (正确: ${correctAnswerHtml})</div>
+                                <div style="margin-top:6px;">
+                                    <div class="score-bar">
+                                        <div class="score-bar-fill ${fillClass}" style="width:${percent}%"></div>
+                                    </div>
+                                    <div class="score-bar-text">权重 ${weight.toFixed(2)}（${percent}%）</div>
+                                </div>
+                                <div style="margin-top:5px;color:#666;">${d.reason}</div>
+                                <div class="judge-meta">Token 使用 | 被测模型 ${modelTokens} | 裁判模型 ${judgeTokens}</div>
+                                <div class="collapsible" onclick="this.nextElementSibling.classList.toggle('show')">
+                                    点击查看完整回答 ▼
+                                </div>
+                                <div class="collapsible-content">${d.model_response || '(无响应)'}</div>
+                                <div class="collapsible" onclick="this.nextElementSibling.classList.toggle('show')">
+                                    点击查看裁判评估内容 ▼
+                                </div>
+                                <div class="collapsible-content">${d.judge_response || '(无裁判返回)'}</div>
+                            </div>
+                        `;
+                    });
+                });
+
+                contentDiv.innerHTML = tableHtml + detailsHtml;
+                detailDiv.style.display = 'block';
+                setTimeout(renderLatex, 100);
+
+            } catch (e) {
+                console.error('加载详情失败:', e);
+            }
+        }
+
+        // LaTeX 渲染
+        function renderLatex() {
+            if (typeof renderMathInElement !== 'undefined') {
+                prepareLatexContent();
+                renderMathInElement(document.body, {
+                    delimiters: [
+                        {left: '$$', right: '$$', display: true},
+                        {left: '$', right: '$', display: false},
+                        {left: '\\[', right: '\\]', display: true},
+                        {left: '\\(', right: '\\)', display: false}
+                    ],
+                    throwOnError: false
+                });
+            }
+        }
+
+        // 初始化
+        loadQuestions();
+        document.addEventListener('DOMContentLoaded', () => {
+            setTimeout(renderLatex, 500);
+            showTab('evaluate');
+            fetchUiState().then(() => {
+                applyUiStateIfAny();
+            });
+            resumeEvaluationIfAny();
+            startOpenrouterHeartbeat();
+        });
+    </script>
+</body>
+</html>
